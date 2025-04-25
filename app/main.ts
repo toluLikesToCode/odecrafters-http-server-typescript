@@ -117,8 +117,6 @@ const server = net.createServer((socket) => {
             // Respond with 400 Bad Request
             socket.write(Buffer.from(HTTP_BAD_REQUEST + CLRF));
         }
-    
-        socket.end();
     });
     
 
