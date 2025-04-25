@@ -17,7 +17,6 @@ const HTTP_BAD_REQUEST = "HTTP/1.1 400 Bad Request" + CLRF;
 
 const baseDirectory = process.argv[2] === '--directory' ? process.argv[3] : '.';
 
-
 const server = net.createServer((socket) => {
     socket.on("data", (data) => {
         console.log("Received data from client");
