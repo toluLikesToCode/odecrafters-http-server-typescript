@@ -85,7 +85,6 @@ const server = net.createServer((socket) => {
                                 console.log("Response Headers:", notFoundResponseHeaders);
                                 console.log("Response Body:", "Not Found");
                                 socket.write(Buffer.from(notFoundResponseHeaders + "Not Found"));
-                                socket.end();
                             } else {
                                 const fileResponseHeaders = [
                                     HTTP_OK,
@@ -95,8 +94,9 @@ const server = net.createServer((socket) => {
                                 ].join("");
                                 console.log("Response Headers:", fileResponseHeaders);
                                 socket.write(Buffer.from(fileResponseHeaders));
-                                socket.write(fileData);
-                                socket.end();
+                                socket.write(fileData, () => {
+                                    console.log("File data sent successfully");
+                                });
                             }
                         });
                         break;                    
@@ -124,7 +124,6 @@ const server = net.createServer((socket) => {
 
     socket.on("close", () => {
         console.log("Client disconnected");
-        socket.end();
     });
 });
 
