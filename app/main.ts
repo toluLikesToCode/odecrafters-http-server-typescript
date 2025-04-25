@@ -1,11 +1,12 @@
 import * as net from "net";
 
 console.log("Hi Tolu");
+console.log("Goodly\nClient disconnected\r");
 
 const server = net.createServer((socket) => {
     socket.on("clsoe", () => {
+        console.log("Goodly\nClient disconnected\r");
         socket.end();
-        console.log("Client disconnected");
     });
 });
 
