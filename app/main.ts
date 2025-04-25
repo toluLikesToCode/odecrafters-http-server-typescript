@@ -41,18 +41,10 @@ const server = net.createServer((socket) => {
             console.log("GET request received");
             const requestPath = requestLine.split(" ")[1];
             console.log("Request path: " + requestPath);
-            // Check if the request path is "/abcdefg"
-            if (requestPath === "/abcdefg") {
-                console.log("Request path", requestPath);
-                // Send the response
-                socket.write(Buffer.from(HTTP_NOT_FOUND + CLRF));
-                console.log("Response sent")
-            } else if (requestPath.startsWith("/")) {
-                console.log("Request path", requestPath);
-                // Send the response
-                socket.write(Buffer.from(HTTP_OK + CLRF));
-                console.log("Response sent")
-            }
+            // Check if the request path is "/"
+            const response = requestPath === '/' ? HTTP_NOT_FOUND+ CLRF : HTTP_OK + CLRF;
+            console.log("Request path", requestPath);
+            socket.write(Buffer.from(response));  
         }
     });
 
