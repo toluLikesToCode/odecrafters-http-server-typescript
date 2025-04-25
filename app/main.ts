@@ -17,6 +17,7 @@ const HTTP_BAD_REQUEST = "HTTP/1.1 400 Bad Request" + CLRF;
 
 const baseDirectory = process.argv[2] === '--directory' ? process.argv[3] : '.';
 
+
 const server = net.createServer((socket) => {
     socket.on("data", (data) => {
         console.log("Received data from client");
@@ -149,7 +150,6 @@ const server = net.createServer((socket) => {
                         const requestBody = rawBuffer.slice(bodyStartIndex, bodyStartIndex + contentLength).toString();
                         const filePath = path.join(baseDirectory, requestPath.split("/")[2]);
                         console.log("File Path:", filePath);
-                        console.log("Request Body:", requestBody);
                         fs.writeFile(filePath, requestBody, (err) => {
                             if (err) {
                                 // Respond with 500 Internal Server Error
@@ -172,7 +172,7 @@ const server = net.createServer((socket) => {
                                 ].join("");
                                 console.log("Response Headers:", createdResponseHeaders);
                                 console.log("Response Body:", "File Created");
-                                socket.write(Buffer.from(createdResponseHeaders + "File Created")); // Append body after headers
+                                socket.write(Buffer.from(createdResponseHeaders));
                             }
                         });
                         break;
