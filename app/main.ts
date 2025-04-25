@@ -25,8 +25,14 @@ const server = net.createServer((socket) => {
     
         if (requestMethod === "GET") {
             console.log("GET request received");
-    
-            if (requestPath.startsWith("/echo/")) {
+            
+            // Log the request path
+            console.log("Request Path:", requestPath);
+            if (requestPath === "/") {
+                // Respond with OK
+                socket.write(Buffer.from(HTTP_OK + CLRF));
+            } else if (requestPath.startsWith("/echo/")) {
+                // Respond with the path after "/echo/"
                 const responseBody = requestPath.slice("/echo/".length);
                 const responseHeaders = [
                     HTTP_OK,
@@ -37,10 +43,21 @@ const server = net.createServer((socket) => {
                 console.log("Response Headers:", responseHeaders);
                 console.log("Response Body:", responseBody);
                 socket.write(Buffer.from(responseHeaders + responseBody));
+
             } else {
-                socket.write(Buffer.from(HTTP_NOT_FOUND + CLRF));
+                // Respond with 404 Not Found
+                const responseHeaders = [
+                    HTTP_NOT_FOUND,
+                    CONTENT_TYPE + "text/plain" + CLRF,
+                    CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
+                    CLRF
+                ].join("");
+                console.log("Response Headers:", responseHeaders);
+                console.log("Response Body:", "Not Found");
+                socket.write(Buffer.from(responseHeaders + "Not Found"));
             }
         } else {
+            // Respond with 400 Bad Request
             socket.write(Buffer.from(HTTP_BAD_REQUEST + CLRF));
         }
     
