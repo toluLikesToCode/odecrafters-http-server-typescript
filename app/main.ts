@@ -37,7 +37,7 @@ const server = net.createServer((socket) => {
         const requestPath = requestLine.split(" ")[1];
         if (requestMethod === "GET") {
             console.log("GET request received");
-            socket.write(HTTP_OK);
+            socket.write(HTTP_OK+CLRNL);
         }
     });
 
