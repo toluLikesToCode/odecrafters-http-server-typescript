@@ -28,47 +28,87 @@ const server = net.createServer((socket) => {
             
             // Log the request path
             console.log("Request Path:", requestPath);
-            if (requestPath === "/") {
-                // Respond with OK
-                socket.write(Buffer.from(HTTP_OK + CLRF));
-            } else if (requestPath.startsWith("/echo/")) {
-                // Respond with the path after "/echo/"
-                const responseBody = requestPath.slice("/echo/".length);
-                const responseHeaders = [
-                    HTTP_OK,
-                    CONTENT_TYPE + "text/plain" + CLRF,
-                    CONTENT_LENGTH + Buffer.byteLength(responseBody) + CLRF,
-                    CLRF
-                ].join("");
-                console.log("Response Headers:", responseHeaders);
-                console.log("Response Body:", responseBody);
-                socket.write(Buffer.from(responseHeaders + responseBody));
 
-            } else if (requestPath.startsWith("/user-agent")) {
-                // Respond with the User-Agent header
-                const userAgentHeader = requestLines.find(line => line.startsWith("User-Agent:"));
-                const userAgent = userAgentHeader ? userAgentHeader.split(": ")[1] : "Unknown";
-                const responseBody = userAgent;
-                const responseHeaders = [
-                    HTTP_OK,
-                    CONTENT_TYPE + "text/plain" + CLRF,
-                    CONTENT_LENGTH + Buffer.byteLength(responseBody) + CLRF,
-                    CLRF
-                ].join("");
-                console.log("Response Headers:", responseHeaders);
-                console.log("Response Body:", responseBody);
-                socket.write(Buffer.from(responseHeaders + responseBody));
-            } else {
-                // Respond with 404 Not Found
-                const responseHeaders = [
-                    HTTP_NOT_FOUND,
-                    CONTENT_TYPE + "text/plain" + CLRF,
-                    CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
-                    CLRF
-                ].join("");
-                console.log("Response Headers:", responseHeaders);
-                console.log("Response Body:", "Not Found");
-                socket.write(Buffer.from(responseHeaders + "Not Found"));
+            const basePath = requestPath.split("/")[1]; // Extract the base path
+            switch (basePath) {
+                case "":
+                    // Respond with OK
+                    socket.write(Buffer.from(HTTP_OK + CLRF));
+                    break;
+
+                case "echo":
+                    // Respond with the path after "/echo/"
+                    const echoResponseBody = requestPath.slice("/echo/".length);
+                    const echoResponseHeaders = [
+                        HTTP_OK,
+                        CONTENT_TYPE + "text/plain" + CLRF,
+                        CONTENT_LENGTH + Buffer.byteLength(echoResponseBody) + CLRF,
+                        CLRF
+                    ].join("");
+                    console.log("Response Headers:", echoResponseHeaders);
+                    console.log("Response Body:", echoResponseBody);
+                    socket.write(Buffer.from(echoResponseHeaders + echoResponseBody));
+                    break;
+
+                case "user-agent":
+                    // Respond with the User-Agent header
+                    const userAgentHeader = requestLines.find(line => line.startsWith("User-Agent:"));
+                    const userAgent = userAgentHeader ? userAgentHeader.split(": ")[1] : "Unknown";
+                    const userAgentResponseBody = userAgent;
+                    const userAgentResponseHeaders = [
+                        HTTP_OK,
+                        CONTENT_TYPE + "text/plain" + CLRF,
+                        CONTENT_LENGTH + Buffer.byteLength(userAgentResponseBody) + CLRF,
+                        CLRF
+                    ].join("");
+                    console.log("Response Headers:", userAgentResponseHeaders);
+                    console.log("Response Body:", userAgentResponseBody);
+                    socket.write(Buffer.from(userAgentResponseHeaders + userAgentResponseBody));
+                    break;
+                case "files":
+                    // extract the file name from the request path
+                    const fileName = requestPath.split("/")[2];
+                    switch (fileName) {
+                        // if not blank, respond with the file name
+                        case "":
+                            // Respond with the file as an octent-stream after "/files/"
+                            const filePath = requestPath.slice("/files/".length);
+                            const fileResponseHeaders = [
+                                HTTP_OK,
+                                CONTENT_TYPE + "application/octet-stream" + CLRF,
+                                CONTENT_LENGTH + Buffer.byteLength(filePath) + CLRF,
+                                CLRF
+                            ].join("");
+                            console.log("Response Headers:", fileResponseHeaders);
+                            console.log("Response Body:", filePath);
+                            socket.write(Buffer.from(fileResponseHeaders + filePath));
+                            break;
+                        default:
+                            // Respond with 404 Not Found
+                            const notFoundResponseHeaders = [
+                                HTTP_NOT_FOUND,
+                                CONTENT_TYPE + "text/plain" + CLRF,
+                                CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
+                                CLRF
+                            ].join("");
+                            console.log("Response Headers:", notFoundResponseHeaders);
+                            console.log("Response Body:", "Not Found");
+                            socket.write(Buffer.from(notFoundResponseHeaders + "Not Found"));
+                            break; 
+                    }
+                    break;
+                default:
+                    // Respond with 404 Not Found
+                    const notFoundResponseHeaders = [
+                        HTTP_NOT_FOUND,
+                        CONTENT_TYPE + "text/plain" + CLRF,
+                        CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
+                        CLRF
+                    ].join("");
+                    console.log("Response Headers:", notFoundResponseHeaders);
+                    console.log("Response Body:", "Not Found");
+                    socket.write(Buffer.from(notFoundResponseHeaders + "Not Found"));
+                    break;
             }
         } else {
             // Respond with 400 Bad Request
