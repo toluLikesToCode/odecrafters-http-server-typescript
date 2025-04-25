@@ -44,6 +44,20 @@ const server = net.createServer((socket) => {
                 console.log("Response Body:", responseBody);
                 socket.write(Buffer.from(responseHeaders + responseBody));
 
+            } else if (requestPath.startsWith("/user-agent")) {
+                // Respond with the User-Agent header
+                const userAgentHeader = requestLines.find(line => line.startsWith("User-Agent:"));
+                const userAgent = userAgentHeader ? userAgentHeader.split(": ")[1] : "Unknown";
+                const responseBody = userAgent;
+                const responseHeaders = [
+                    HTTP_OK,
+                    CONTENT_TYPE + "text/plain" + CLRF,
+                    CONTENT_LENGTH + Buffer.byteLength(responseBody) + CLRF,
+                    CLRF
+                ].join("");
+                console.log("Response Headers:", responseHeaders);
+                console.log("Response Body:", responseBody);
+                socket.write(Buffer.from(responseHeaders + responseBody));
             } else {
                 // Respond with 404 Not Found
                 const responseHeaders = [
