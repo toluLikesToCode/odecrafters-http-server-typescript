@@ -1,7 +1,7 @@
 import * as net from "net";
 
 console.log("Hi Tolu");
-console.log("Goodly\nClient disconnected\r");
+console.log("Goodbye\rClient disconnected\n");
 
 const server = net.createServer((socket) => {
     socket.on("clsoe", () => {
