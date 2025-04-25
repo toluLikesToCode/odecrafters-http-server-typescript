@@ -29,7 +29,7 @@ const server = net.createServer((socket) => {
             // Check if the request path is "/"
             if (requestPath.startsWith("/echo/")) {
                 // Send a response
-                const responseBody = requestPath.split('/')[1];
+                const responseBody = requestPath.slice('/echo/'.length);
                 const responseHeaders = [
                     HTTP_OK,
                     CONTENT_TYPE + "text/plain" + CLRF,
