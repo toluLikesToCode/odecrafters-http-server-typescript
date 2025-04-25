@@ -27,7 +27,7 @@ const server = net.createServer((socket) => {
         if (requestMethod === "GET") {
             console.log("GET request received");
             // Check if the request path is "/"
-            if (requestPath === "/echo") {
+            if (requestPath.startsWith("/echo")) {
                 // Send a response
                 const responseBody = requestPath.split('/')[1];
                 const responseHeaders = [
