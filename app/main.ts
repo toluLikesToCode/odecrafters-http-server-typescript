@@ -28,7 +28,6 @@ const HTTP_RESPONSE_END_BODY = HTTP_RESPONSE_END + CLRF;
 const server = net.createServer((socket) => {
     socket.on("data", (data) => {
         console.log("Received data from client");
-        console.log(data.toString());
         // Parse the request
         const request = data.toString();
         // Split the request into lines
@@ -39,7 +38,6 @@ const server = net.createServer((socket) => {
         const requestPath = requestLine.split(" ")[1];
         if (requestMethod === "GET") {
             console.log("GET request received");
-            const requestPath = requestLine.split(" ")[1];
             // Check if the request path is "/"
             const response = requestPath === '/' ? HTTP_OK + CLRF : HTTP_NOT_FOUND+ CLRF;
             console.log("Request path", requestPath);
