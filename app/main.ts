@@ -1,5 +1,9 @@
 import * as net from "net";
 
+import * as fs from 'fs';
+import * as path from 'path';
+
+
 console.log("Hi Tolu");
 
 const CLRF = "\r\n";
@@ -11,6 +15,7 @@ const CONTENT_LENGTH = "Content-Length: " ;
 
 const HTTP_BAD_REQUEST = "HTTP/1.1 400 Bad Request" + CLRF;
 
+const baseDirectory = process.argv[2] === '--directory' ? process.argv[3] : '.';
 
 
 const server = net.createServer((socket) => {
@@ -65,38 +70,36 @@ const server = net.createServer((socket) => {
                     console.log("Response Body:", userAgentResponseBody);
                     socket.write(Buffer.from(userAgentResponseHeaders + userAgentResponseBody));
                     break;
-                case "files":
-                    // extract the file name from the request path
-                    const fileName = requestPath.split("/")[2];
-                    switch (fileName) {
-                        // if not blank, respond with the file name
-                        case "":
-                            // Respond with the file as an octent-stream after "/files/"
-                            const filePath = requestPath.slice("/files/".length);
-                            const fileResponseHeaders = [
-                                HTTP_OK,
-                                CONTENT_TYPE + "application/octet-stream" + CLRF,
-                                CONTENT_LENGTH + Buffer.byteLength(filePath) + CLRF,
-                                CLRF
-                            ].join("");
-                            console.log("Response Headers:", fileResponseHeaders);
-                            console.log("Response Body:", filePath);
-                            socket.write(Buffer.from(fileResponseHeaders + filePath));
-                            break;
-                        default:
-                            // Respond with 404 Not Found
-                            const notFoundResponseHeaders = [
-                                HTTP_NOT_FOUND,
-                                CONTENT_TYPE + "text/plain" + CLRF,
-                                CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
-                                CLRF
-                            ].join("");
-                            console.log("Response Headers:", notFoundResponseHeaders);
-                            console.log("Response Body:", "Not Found");
-                            socket.write(Buffer.from(notFoundResponseHeaders + "Not Found"));
-                            break; 
-                    }
-                    break;
+                    case "files":
+                        const filePath = requestPath.slice("/files/".length);
+                        const fullPath = path.join(baseDirectory, filePath);
+                    
+                        fs.readFile(fullPath, (err, fileData) => {
+                            if (err) {
+                                const notFoundResponseHeaders = [
+                                    HTTP_NOT_FOUND,
+                                    CONTENT_TYPE + "text/plain" + CLRF,
+                                    CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
+                                    CLRF
+                                ].join("");
+                                console.log("Response Headers:", notFoundResponseHeaders);
+                                console.log("Response Body:", "Not Found");
+                                socket.write(Buffer.from(notFoundResponseHeaders + "Not Found"));
+                                socket.end();
+                            } else {
+                                const fileResponseHeaders = [
+                                    HTTP_OK,
+                                    CONTENT_TYPE + "application/octet-stream" + CLRF,
+                                    CONTENT_LENGTH + fileData.length + CLRF,
+                                    CLRF
+                                ].join("");
+                                console.log("Response Headers:", fileResponseHeaders);
+                                socket.write(Buffer.from(fileResponseHeaders));
+                                socket.write(fileData);
+                                socket.end();
+                            }
+                        });
+                        break;                    
                 default:
                     // Respond with 404 Not Found
                     const notFoundResponseHeaders = [
