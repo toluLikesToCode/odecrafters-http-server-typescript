@@ -4,6 +4,8 @@ console.log("Hi Tolu");
 
 const CLRNL = "\r\n";
 const HTTP_OK = "HTTP/1.1 200 OK" + CLRNL;
+const HTTP_NOT_FOUND = "HTTP/1.1 404 Not Found" + CLRNL;
+const HTTP_BAD_REQUEST = "HTTP/1.1 400 Bad Request" + CLRNL;
 const CONTENT_TYPE = "Content-Type: text/html" + CLRNL;
 const CONTENT_LENGTH = "Content-Length: 13" + CLRNL;
 const HTML = "<h1>Hello</h1>" + CLRNL;
@@ -37,7 +39,15 @@ const server = net.createServer((socket) => {
         const requestPath = requestLine.split(" ")[1];
         if (requestMethod === "GET") {
             console.log("GET request received");
-            socket.write(HTTP_OK+CLRNL);
+            const requestPath = requestLine.split(" ")[1];
+            console.log("Request path: " + requestPath);
+            // Check if the request path is "/"
+            if (requestPath === "/abcdefg") {
+                console.log("Request path", requestPath);
+                // Send the response
+                socket.write(HTTP_NOT_FOUND);
+                console.log("Response sent")
+            } 
         }
     });
 
