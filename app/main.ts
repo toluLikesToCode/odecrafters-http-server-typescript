@@ -173,7 +173,7 @@ const server = net.createServer((socket) => {
                                 ].join("");
                                 console.log("Response Headers:", createdResponseHeaders);
                                 console.log("Response Body:", "File Created");
-                                socket.write(Buffer.from(createdResponseHeaders));
+                                socket.write(Buffer.from(createdResponseHeaders + "File Created")); // Append body after headers
                             }
                         });
                         break;
