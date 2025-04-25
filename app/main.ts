@@ -42,7 +42,7 @@ const server = net.createServer((socket) => {
             const requestPath = requestLine.split(" ")[1];
             console.log("Request path: " + requestPath);
             // Check if the request path is "/"
-            const response = requestPath === '/' ? HTTP_NOT_FOUND+ CLRF : HTTP_OK + CLRF;
+            const response = requestPath === '/' ? HTTP_OK + CLRF : HTTP_NOT_FOUND+ CLRF;
             console.log("Request path", requestPath);
             socket.write(Buffer.from(response));  
         }
