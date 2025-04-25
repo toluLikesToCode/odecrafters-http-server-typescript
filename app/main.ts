@@ -5,8 +5,8 @@ console.log("Hi Tolu");
 const CLRF = "\r\n";
 const HTTP_OK = "HTTP/1.1 200 OK" + CLRF;
 const HTTP_NOT_FOUND = "HTTP/1.1 404 Not Found" + CLRF;
-const CONTENT_TYPE = "Content-Type: " + CLRF;
-const CONTENT_LENGTH = "Content-Length: " + CLRF;
+const CONTENT_TYPE = "Content-Type: " ;
+const CONTENT_LENGTH = "Content-Length: " ;
 
 
 const HTTP_BAD_REQUEST = "HTTP/1.1 400 Bad Request" + CLRF;
@@ -34,6 +34,7 @@ const server = net.createServer((socket) => {
                     HTTP_OK,
                     CONTENT_TYPE + "text/plain" + CLRF,
                     CONTENT_LENGTH + Buffer.byteLength(responseBody) + CLRF,
+                    CLRF
                 ].join("");
                 console.log("Response Headers: ", responseHeaders);
                 console.log("Response Body: ", responseBody);
