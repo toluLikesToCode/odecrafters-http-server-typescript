@@ -33,7 +33,7 @@ const server = net.createServer((socket) => {
                 const responseHeaders = [
                     HTTP_OK,
                     CONTENT_TYPE + "text/plain" + CLRF,
-                    CONTENT_LENGTH + responseBody.length + CLRF + CLRF,
+                    CONTENT_LENGTH + Buffer.byteLength(responseBody) + CLRF,
                 ].join("");
                 console.log("Response Headers: ", responseHeaders);
                 console.log("Response Body: ", responseBody);
