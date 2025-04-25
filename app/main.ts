@@ -35,6 +35,8 @@ const server = net.createServer((socket) => {
                     CONTENT_TYPE + "text/plain" + CLRF,
                     CONTENT_LENGTH + responseBody.length + CLRF + CLRF,
                 ].join("");
+                console.log("Response Headers: ", responseHeaders);
+                console.log("Response Body: ", responseBody);
                 socket.write(Buffer.from(responseHeaders + responseBody));
             };
             
