@@ -135,14 +135,23 @@ const server = net.createServer((socket) => {
                         socket.write(Buffer.from(HTTP_OK + CLRF));
                         break;
                     case "files":
-                        // accepts text from the client and creates a new file with that text.
-                        // must also create a new file in the files directory, with the following requirements:
-                        // The filename must equal the filename parameter in the endpoint.
-                        // The file must contain the contents of the request body.
-                        const fileName = requestPath.split("/")[2];
-                        const fileContent = requestLines.slice(requestLines.indexOf(CLRF) + 1).join(CLRF);
-                        const filePath = path.join(baseDirectory, fileName);
-                        fs.writeFile(filePath, fileContent, (err) => {
+                        // Get content length from headers
+                        const contentLengthHeader = requestLines.find(line => line.toLowerCase().startsWith("content-length:"));
+                        const contentLength = contentLengthHeader ? parseInt(contentLengthHeader.split(":")[1].trim()) : 0;
+
+                        // Find start of body (after the first empty line)
+                        const headerSectionEnd = request.indexOf(CLRF + CLRF); // double CRLF separates headers from body
+                        const bodyStartIndex = headerSectionEnd + (CLRF + CLRF).length;
+
+                        // Get raw buffer
+                        const rawBuffer = Buffer.from(data);
+
+                        // Extract the actual body content
+                        const requestBody = rawBuffer.slice(bodyStartIndex, bodyStartIndex + contentLength).toString();
+                        const filePath = path.join(baseDirectory, requestPath.split("/")[2]);
+                        console.log("File Path:", filePath);
+                        console.log("Request Body:", requestBody);
+                        fs.writeFile(filePath, requestBody, (err) => {
                             if (err) {
                                 // Respond with 500 Internal Server Error
                                 const internalServerErrorResponseHeaders = [
