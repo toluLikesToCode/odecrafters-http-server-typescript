@@ -47,7 +47,7 @@ const server = net.createServer((socket) => {
                 // Send the response
                 socket.write(HTTP_NOT_FOUND);
                 console.log("Response sent")
-            } else if (requestPath === "/") {
+            } else if (requestPath.startsWith("/")) {
                 console.log("Request path", requestPath);
                 // Send the response
                 socket.write(HTTP_OK);
