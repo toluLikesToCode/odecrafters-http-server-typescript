@@ -16,36 +16,39 @@ const HTTP_BAD_REQUEST = "HTTP/1.1 400 Bad Request" + CLRF;
 const server = net.createServer((socket) => {
     socket.on("data", (data) => {
         console.log("Received data from client");
-        // Parse the request
+    
         const request = data.toString();
-        // Split the request into lines
         const requestLines = request.split(CLRF);
-        // Get the request method and path
         const requestLine = requestLines[0];
         const requestMethod = requestLine.split(" ")[0];
         const requestPath = requestLine.split(" ")[1];
+    
         if (requestMethod === "GET") {
             console.log("GET request received");
-            // Check if the request path is "/"
+    
             if (requestPath.startsWith("/echo/")) {
-                // Send a response
-                const responseBody = requestPath.slice('/echo/'.length);
+                const responseBody = requestPath.slice("/echo/".length);
                 const responseHeaders = [
                     HTTP_OK,
                     CONTENT_TYPE + "text/plain" + CLRF,
                     CONTENT_LENGTH + Buffer.byteLength(responseBody) + CLRF,
                     CLRF
                 ].join("");
-                console.log("Response Headers: ", responseHeaders);
-                console.log("Response Body: ", responseBody);
+                console.log("Response Headers:", responseHeaders);
+                console.log("Response Body:", responseBody);
                 socket.write(Buffer.from(responseHeaders + responseBody));
-            };
-            
-             
+            } else {
+                socket.write(Buffer.from(HTTP_NOT_FOUND + CLRF));
+            }
+        } else {
+            socket.write(Buffer.from(HTTP_BAD_REQUEST + CLRF));
         }
+    
+        socket.end();
     });
+    
 
-    socket.on("clsoe", () => {
+    socket.on("close", () => {
         console.log("Client disconnected");
         socket.end();
     });
