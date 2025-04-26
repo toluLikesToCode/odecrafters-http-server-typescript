@@ -98,6 +98,13 @@ const routes: Record<string, Handler> = {
     if (pathParts.length === 3) {
       const echoString = pathParts[2];
       res.writeStatus(200, "OK");
+
+      // Add Content-Encoding if client supports gzip
+      const acceptEnc = req.headers["accept-encoding"] || "";
+      if (acceptEnc.includes("gzip")) {
+        res.writeHeader("Content-Encoding", "gzip");
+      }
+
       res.writeHeader("Content-Type", "text/plain");
       res.writeHeader("Content-Length", echoString.length.toString());
       res.end(echoString);
