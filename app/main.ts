@@ -1,223 +1,220 @@
 import * as net from "net";
 
-import * as fs from 'fs';
-import * as path from 'path';
-
+import * as fs from "fs";
+import * as path from "path";
 
 console.log("Hi Tolu");
 
-const CLRF = "\r\n";
-const HTTP_OK = "HTTP/1.1 200 OK" + CLRF;
-const HTTP_NOT_FOUND = "HTTP/1.1 404 Not Found" + CLRF;
-const CONTENT_TYPE = "Content-Type: " ;
-const CONTENT_LENGTH = "Content-Length: " ;
+let baseDirectory = "/"; // Default directory, updated via --directory flag
 
+interface Request {
+  method: string;
+  path: string; // e.g. "/echo/hello"
+  headers: Record<string, string>;
+  body: Buffer; // raw bytes of body
+}
 
-const HTTP_BAD_REQUEST = "HTTP/1.1 400 Bad Request" + CLRF;
+interface ResponseWriter {
+  writeStatus(statusCode: number, statusText: string): void;
+  writeHeader(name: string, value: string): void;
+  end(body?: Buffer | string): void;
+}
 
-const baseDirectory = process.argv[2] === '--directory' ? process.argv[3] : '.';
+function parseRequest(
+  buffer: Buffer
+): { req: Request; consumed: number } | null {
+  const sep = Buffer.from("\r\n\r\n");
+  const headerEnd = buffer.indexOf(sep);
+  if (headerEnd === -1) return null; // not even headers yet
 
+  const headerText = buffer.subarray(0, headerEnd).toString("utf8");
+  const lines = headerText.split("\r\n");
+  const [method, fullPath] = lines[0].split(" ");
+
+  // headers map
+  const headers: Record<string, string> = {};
+  for (const line of lines.slice(1)) {
+    const idx = line.indexOf(":");
+    if (idx > 0) {
+      const name = line.slice(0, idx).trim().toLowerCase();
+      const value = line.slice(idx + 1).trim();
+      headers[name] = value;
+    }
+  }
+
+  // body
+  const contentLength = headers["content-length"]
+    ? parseInt(headers["content-length"], 10)
+    : 0;
+  const bodyStart = headerEnd + sep.length;
+  const totalNeeded = bodyStart + contentLength;
+  if (buffer.length < totalNeeded) return null; // wait for full body
+
+  const body = buffer.subarray(bodyStart, totalNeeded);
+
+  return {
+    req: { method, path: fullPath, headers, body },
+    consumed: totalNeeded,
+  };
+}
+
+function makeWriter(socket: net.Socket): ResponseWriter {
+  let headersSent = false;
+
+  return {
+    writeStatus(code, text) {
+      const line = `HTTP/1.1 ${code} ${text}\r\n`;
+      socket.write(line);
+      headersSent = true;
+    },
+    writeHeader(name, value) {
+      socket.write(`${name}: ${value}\r\n`);
+    },
+    end(body) {
+      if (!headersSent) {
+        this.writeStatus(200, "OK");
+        this.writeHeader("Content-Length", "0");
+        socket.write("\r\n");
+      } else {
+        socket.write("\r\n");
+      }
+      if (body !== undefined) {
+        const buf = typeof body === "string" ? Buffer.from(body, "utf8") : body;
+        socket.write(buf);
+      }
+    },
+  };
+}
+
+type Handler = (req: Request, res: ResponseWriter) => void;
+
+const routes: Record<string, Handler> = {
+  "GET /": (_req, res) => {
+    res.writeStatus(200, "OK");
+    res.end();
+  },
+  "GET /echo": (req, res) => {
+    const pathParts = req.path.split("/");
+    if (pathParts.length === 3) {
+      const echoString = pathParts[2];
+      res.writeStatus(200, "OK");
+      res.writeHeader("Content-Type", "text/plain");
+      res.writeHeader("Content-Length", echoString.length.toString());
+      res.end(echoString);
+    } else {
+      res.writeStatus(404, "Not Found");
+      res.end();
+    }
+  },
+  "GET /user-agent": (req, res) => {
+    const userAgent = req.headers["user-agent"];
+    if (userAgent) {
+      res.writeStatus(200, "OK");
+      res.writeHeader("Content-Type", "text/plain");
+      res.writeHeader("Content-Length", userAgent.length.toString());
+      res.end(userAgent);
+    } else {
+      res.writeStatus(400, "Bad Request");
+      res.end("User-Agent header is missing");
+    }
+  },
+  "GET /files": (req, res) => {
+    const pathParts = req.path.split("/");
+    if (pathParts.length === 3) {
+      const filename = pathParts[2];
+      const filePath = path.join(baseDirectory, filename);
+
+      // Check if the file exists
+      fs.stat(filePath, (err, stats) => {
+        if (err || !stats.isFile()) {
+          res.writeStatus(404, "Not Found");
+          res.end();
+          return;
+        }
+
+        // Read and serve the file
+        fs.readFile(filePath, (err, data) => {
+          if (err) {
+            res.writeStatus(500, "Internal Server Error");
+            res.end();
+            return;
+          }
+
+          res.writeStatus(200, "OK");
+          res.writeHeader("Content-Type", "application/octet-stream");
+          res.writeHeader("Content-Length", data.length.toString());
+          res.end(data);
+        });
+      });
+    } else {
+      res.writeStatus(404, "Not Found");
+      res.end();
+    }
+  },
+  "POST /files": (req, res) => {
+    const pathParts = req.path.split("/");
+    if (pathParts.length === 3) {
+      const filename = pathParts[2];
+      const filePath = path.join(baseDirectory, filename);
+
+      // Write the request body to the file
+      fs.writeFile(filePath, req.body, (err) => {
+        if (err) {
+          res.writeStatus(500, "Internal Server Error");
+          res.end();
+          return;
+        }
+
+        res.writeStatus(201, "Created");
+        res.end();
+      });
+    } else {
+      res.writeStatus(404, "Not Found");
+      res.end();
+    }
+  },
+};
 
 const server = net.createServer((socket) => {
-    socket.on("data", (data) => {
-        console.log("Received data from client");
-    
-        const request = data.toString();
-        const requestLines = request.split(CLRF);
-        const requestLine = requestLines[0];
-        const requestMethod = requestLine.split(" ")[0];
-        const requestPath = requestLine.split(" ")[1];
-        const basePath = requestPath.split("/")[1]; // Extract the base path
-    
-        switch (requestMethod) {
-            
+  let buffer = Buffer.alloc(0);
 
-            case "GET":
-                console.log("GET request received");
-                
-                // Log the request path
-                console.log("Request Path:", requestPath);
+  socket.on("data", (chunk) => {
+    console.log("Received chunk from client");
+    buffer = Buffer.concat([buffer, chunk]);
 
-                
-                switch (basePath) {
-                    case "":
-                        // Respond with OK
-                        socket.write(Buffer.from(HTTP_OK + CLRF));
-                        break;
+    while (true) {
+      const parsed = parseRequest(buffer);
+      if (!parsed) break;
 
-                    case "echo":
-                        // Respond with the path after "/echo/"
-                        const echoResponseBody = requestPath.slice("/echo/".length);
-                        const echoResponseHeaders = [
-                            HTTP_OK,
-                            CONTENT_TYPE + "text/plain" + CLRF,
-                            CONTENT_LENGTH + Buffer.byteLength(echoResponseBody) + CLRF,
-                            CLRF
-                        ].join("");
-                        console.log("Response Headers:", echoResponseHeaders);
-                        console.log("Response Body:", echoResponseBody);
-                        socket.write(Buffer.from(echoResponseHeaders + echoResponseBody));
-                        break;
+      const { req, consumed } = parsed;
+      buffer = buffer.subarray(consumed);
 
-                    case "user-agent":
-                        // Respond with the User-Agent header
-                        const userAgentHeader = requestLines.find(line => line.startsWith("User-Agent:"));
-                        const userAgent = userAgentHeader ? userAgentHeader.split(": ")[1] : "Unknown";
-                        const userAgentResponseBody = userAgent;
-                        const userAgentResponseHeaders = [
-                            HTTP_OK,
-                            CONTENT_TYPE + "text/plain" + CLRF,
-                            CONTENT_LENGTH + Buffer.byteLength(userAgentResponseBody) + CLRF,
-                            CLRF
-                        ].join("");
-                        console.log("Response Headers:", userAgentResponseHeaders);
-                        console.log("Response Body:", userAgentResponseBody);
-                        socket.write(Buffer.from(userAgentResponseHeaders + userAgentResponseBody));
-                        break;
+      const res = makeWriter(socket);
+      const key = `${req.method} /${req.path.split("/")[1]}`;
+      const handler = routes[key];
 
-                    case "files":
-                        const filePath = requestPath.slice("/files/".length);
-                        const fullPath = path.join(baseDirectory, filePath);
-                    
-                        fs.readFile(fullPath, (err, fileData) => {
-                            if (err) {
-                                // Respond with 404 Not Found
-                                const notFoundResponseHeaders = [
-                                    HTTP_NOT_FOUND,
-                                    CONTENT_TYPE + "text/plain" + CLRF,
-                                    CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
-                                    CLRF
-                                ].join("");
-                                console.log("Response Headers:", notFoundResponseHeaders);
-                                console.log("Response Body:", "Not Found");
-                                socket.write(Buffer.from(notFoundResponseHeaders + "Not Found"));
-                            } else {
-                                // Respond with the file data
-                                const fileResponseHeaders = [
-                                    HTTP_OK,
-                                    CONTENT_TYPE + "application/octet-stream" + CLRF,
-                                    CONTENT_LENGTH + fileData.length + CLRF,
-                                    CLRF
-                                ].join("");
-                                console.log("Response Headers:", fileResponseHeaders);
-                                console.log("Response Body: [binary data]");
-                                socket.write(Buffer.from(fileResponseHeaders));
-                                socket.write(fileData, () => {
-                                    console.log("File data sent successfully");
-                                });
-                            }
-                        });
-                        break;
+      if (handler) {
+        handler(req, res);
+      } else {
+        // Respond with 404 for any unmatched route
+        res.writeStatus(404, "Not Found");
+        res.end();
+      }
+    }
+  });
 
-                    default:
-                        // Respond with 404 Not Found
-                        const notFoundResponseHeaders = [
-                            HTTP_NOT_FOUND,
-                            CONTENT_TYPE + "text/plain" + CLRF,
-                            CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
-                            CLRF
-                        ].join("");
-                        console.log("Response Headers:", notFoundResponseHeaders);
-                        console.log("Response Body:", "Not Found");
-                        socket.write(Buffer.from(notFoundResponseHeaders + "Not Found"));
-                        break;
-                }
-                break;
-            
-            case "POST":
-                console.log("POST request received");
-                // Log the request path
-                console.log("Request Path:", requestPath);
-                
-                switch (basePath) {
-                    case "":
-                        // Respond with OK
-                        socket.write(Buffer.from(HTTP_OK + CLRF));
-                        break;
-                    case "files":
-                        // Get content length from headers
-                        const contentLengthHeader = requestLines.find(line => line.toLowerCase().startsWith("content-length:"));
-                        const contentLength = contentLengthHeader ? parseInt(contentLengthHeader.split(":")[1].trim()) : 0;
-
-                        // Find start of body (after the first empty line)
-                        const headerSectionEnd = request.indexOf(CLRF + CLRF); // double CRLF separates headers from body
-                        const bodyStartIndex = headerSectionEnd + (CLRF + CLRF).length;
-
-                        // Get raw buffer
-                        const rawBuffer = Buffer.from(data);
-
-                        // Extract the actual body content
-                        const requestBody = rawBuffer.slice(bodyStartIndex, bodyStartIndex + contentLength).toString();
-                        const filePath = path.join(baseDirectory, requestPath.split("/")[2]);
-                        console.log("File Path:", filePath);
-                        fs.writeFile(filePath, requestBody, (err) => {
-                            if (err) {
-                                // Respond with 500 Internal Server Error
-                                const internalServerErrorResponseHeaders = [
-                                    "HTTP/1.1 500 Internal Server Error" + CLRF,
-                                    CONTENT_TYPE + "text/plain" + CLRF,
-                                    CONTENT_LENGTH + Buffer.byteLength("Internal Server Error") + CLRF,
-                                    CLRF
-                                ].join("");
-                                console.log("Response Headers:", internalServerErrorResponseHeaders);
-                                console.log("Response Body:", "Internal Server Error");
-                                socket.write(Buffer.from(internalServerErrorResponseHeaders + "Internal Server Error"));
-                            } else {
-                                // Respond with 201 Created
-                                const createdResponseHeaders = [
-                                    "HTTP/1.1 201 Created" + CLRF,
-                                    CONTENT_TYPE + "text/plain" + CLRF,
-                                    CONTENT_LENGTH + Buffer.byteLength("File Created") + CLRF,
-                                    CLRF
-                                ].join("");
-                                console.log("Response Headers:", createdResponseHeaders);
-                                console.log("Response Body:", "File Created");
-                                socket.write(Buffer.from(createdResponseHeaders));
-                            }
-                        });
-                        break;
-                    default:
-                        // Respond with 404 Not Found
-                        const notFoundResponseHeaders = [
-                            HTTP_NOT_FOUND,
-                            CONTENT_TYPE + "text/plain" + CLRF,
-                            CONTENT_LENGTH + Buffer.byteLength("Not Found") + CLRF,
-                            CLRF
-                        ].join("");
-                        console.log("Response Headers:", notFoundResponseHeaders);
-                        console.log("Response Body:", "Not Found");
-                        socket.write(Buffer.from(notFoundResponseHeaders + "Not Found"));
-                        break;
-                }
-                break;
-            case "PUT":
-                console.log("PUT request received");
-                // Log the request path
-                console.log("Request Path:", requestPath);
-                // Respond with 200 OK
-                socket.write(Buffer.from(HTTP_OK + CLRF));
-                break;
-            case "DELETE":
-                console.log("DELETE request received");
-                // Log the request path
-                console.log("Request Path:", requestPath);
-                // Respond with 200 OK
-                socket.write(Buffer.from(HTTP_OK + CLRF));
-                break;
-            default:
-                // Respond with 400 Bad Request
-                socket.write(Buffer.from(HTTP_BAD_REQUEST + CLRF));
-                break;
-        }
-        
-    });
-    
-
-    socket.on("close", () => {
-        socket.end();
-        console.log("Client disconnected");
-    });
+  socket.on("close", () => {
+    socket.end();
+    console.log("Client disconnected");
+  });
 });
 
+// Parse the --directory flag
+const args = process.argv.slice(2);
+const directoryFlagIndex = args.indexOf("--directory");
+if (directoryFlagIndex !== -1 && args[directoryFlagIndex + 1]) {
+  baseDirectory = args[directoryFlagIndex + 1];
+  console.log(`Serving files from directory: ${baseDirectory}`);
+}
 
-server.listen(4221, 'localhost');
+server.listen(4221, "localhost");
