@@ -1,13 +1,20 @@
 import * as net from "net";
-
 import * as fs from "fs";
 import * as path from "path";
 import { gzipSync } from "zlib";
 
-console.log("Hi Tolu");
+// Entry log for server startup
+console.log("Hi Tolu - HTTP server is starting up...");
 
 let baseDirectory = "/"; // Default directory, updated via --directory flag
 
+/**
+ * Represents an HTTP request.
+ * @property method - HTTP method (GET, POST, etc.)
+ * @property path - The request path (e.g. "/echo/hello")
+ * @property headers - Key-value pairs of HTTP headers
+ * @property body - Raw bytes of the request body
+ */
 interface Request {
   method: string;
   path: string; // e.g. "/echo/hello"
@@ -15,12 +22,22 @@ interface Request {
   body: Buffer; // raw bytes of body
 }
 
+/**
+ * Interface for writing HTTP responses to the client.
+ * Provides methods to set status, headers, and send the response body.
+ */
 interface ResponseWriter {
   writeStatus(statusCode: number, statusText: string): void;
   writeHeader(name: string, value: string): void;
   end(body?: Buffer | string): void;
 }
 
+/**
+ * Parses a raw TCP buffer into an HTTP request object.
+ * Returns null if the buffer does not yet contain a full request.
+ * @param buffer - The raw TCP data buffer
+ * @returns Parsed request and number of bytes consumed, or null if incomplete
+ */
 function parseRequest(
   buffer: Buffer
 ): { req: Request; consumed: number } | null {
@@ -59,6 +76,13 @@ function parseRequest(
   };
 }
 
+/**
+ * Creates a ResponseWriter for a given socket.
+ * Handles status, headers, and body writing, and connection closing if needed.
+ * @param socket - The TCP socket to write to
+ * @param wantsClose - Whether the client requested connection close
+ * @returns ResponseWriter instance
+ */
 function makeWriter(socket: net.Socket, wantsClose: boolean): ResponseWriter {
   let headersSent = false;
 
@@ -101,12 +125,17 @@ function makeWriter(socket: net.Socket, wantsClose: boolean): ResponseWriter {
 
 type Handler = (req: Request, res: ResponseWriter) => void;
 
+// Route handlers for different endpoints
 const routes: Record<string, Handler> = {
+  // Root endpoint handler
   "GET /": (_req, res) => {
+    console.log("Handling GET /");
     res.writeStatus(200, "OK");
     res.end();
   },
+  // Echo endpoint handler
   "GET /echo": (req, res) => {
+    console.log(`Handling GET /echo with path: ${req.path}`);
     const pathParts = req.path.split("/");
     if (pathParts.length === 3) {
       const echoString = pathParts[2];
@@ -131,7 +160,9 @@ const routes: Record<string, Handler> = {
       res.end();
     }
   },
+  // User-Agent endpoint handler
   "GET /user-agent": (req, res) => {
+    console.log("Handling GET /user-agent");
     const userAgent = req.headers["user-agent"];
     if (userAgent) {
       res.writeStatus(200, "OK");
@@ -143,7 +174,9 @@ const routes: Record<string, Handler> = {
       res.end("User-Agent header is missing");
     }
   },
+  // File download endpoint handler
   "GET /files": (req, res) => {
+    console.log(`Handling GET /files with path: ${req.path}`);
     const pathParts = req.path.split("/");
     if (pathParts.length === 3) {
       const filename = pathParts[2];
@@ -176,7 +209,9 @@ const routes: Record<string, Handler> = {
       res.end();
     }
   },
+  // File upload endpoint handler
   "POST /files": (req, res) => {
+    console.log(`Handling POST /files with path: ${req.path}`);
     const pathParts = req.path.split("/");
     if (pathParts.length === 3) {
       const filename = pathParts[2];
@@ -200,8 +235,12 @@ const routes: Record<string, Handler> = {
   },
 };
 
+// Create the TCP server
 const server = net.createServer((socket) => {
   let buffer = Buffer.alloc(0);
+
+  // Log new client connection
+  console.log("New client connected: ", socket.remoteAddress);
 
   socket.on("data", (chunk) => {
     console.log("Received chunk from client");
@@ -236,7 +275,7 @@ const server = net.createServer((socket) => {
   });
 });
 
-// Parse the --directory flag
+// Parse the --directory flag for serving files from a custom directory
 const args = process.argv.slice(2);
 const directoryFlagIndex = args.indexOf("--directory");
 if (directoryFlagIndex !== -1 && args[directoryFlagIndex + 1]) {
@@ -244,4 +283,6 @@ if (directoryFlagIndex !== -1 && args[directoryFlagIndex + 1]) {
   console.log(`Serving files from directory: ${baseDirectory}`);
 }
 
+// Start listening for connections
+console.log("Server listening on http://localhost:4221");
 server.listen(4221, "localhost");
