@@ -2,6 +2,7 @@ import * as net from "net";
 
 import * as fs from "fs";
 import * as path from "path";
+import { gzipSync } from "zlib";
 
 console.log("Hi Tolu");
 
@@ -99,15 +100,20 @@ const routes: Record<string, Handler> = {
       const echoString = pathParts[2];
       res.writeStatus(200, "OK");
 
-      // Add Content-Encoding if client supports gzip
+      // Choose gzip compression if client supports it
       const acceptEnc = req.headers["accept-encoding"] || "";
-      if (acceptEnc.includes("gzip")) {
+      const supportsGzip = acceptEnc.includes("gzip");
+      let bodyBuffer: Buffer;
+      if (supportsGzip) {
+        bodyBuffer = gzipSync(Buffer.from(echoString, "utf8"));
         res.writeHeader("Content-Encoding", "gzip");
+      } else {
+        bodyBuffer = Buffer.from(echoString, "utf8");
       }
 
       res.writeHeader("Content-Type", "text/plain");
-      res.writeHeader("Content-Length", echoString.length.toString());
-      res.end(echoString);
+      res.writeHeader("Content-Length", bodyBuffer.length.toString());
+      res.end(bodyBuffer);
     } else {
       res.writeStatus(404, "Not Found");
       res.end();
