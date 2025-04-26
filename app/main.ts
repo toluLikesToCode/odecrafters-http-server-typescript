@@ -59,7 +59,7 @@ function parseRequest(
   };
 }
 
-function makeWriter(socket: net.Socket): ResponseWriter {
+function makeWriter(socket: net.Socket, wantsClose: boolean): ResponseWriter {
   let headersSent = false;
 
   return {
@@ -72,16 +72,28 @@ function makeWriter(socket: net.Socket): ResponseWriter {
       socket.write(`${name}: ${value}\r\n`);
     },
     end(body) {
+      // if no status/headers yet, send default 200
       if (!headersSent) {
         this.writeStatus(200, "OK");
-        this.writeHeader("Content-Length", "0");
-        socket.write("\r\n");
-      } else {
-        socket.write("\r\n");
       }
+      // if client asked to close, echo it
+      if (wantsClose) {
+        this.writeHeader("Connection", "close");
+      }
+      // if we never wrote any Content-Length, default to 0
+      if (!headersSent) {
+        this.writeHeader("Content-Length", "0");
+      }
+      // end of headers
+      socket.write("\r\n");
+
       if (body !== undefined) {
         const buf = typeof body === "string" ? Buffer.from(body, "utf8") : body;
         socket.write(buf);
+      }
+      // finally, close if requested
+      if (wantsClose) {
+        socket.end();
       }
     },
   };
@@ -202,7 +214,10 @@ const server = net.createServer((socket) => {
       const { req, consumed } = parsed;
       buffer = buffer.subarray(consumed);
 
-      const res = makeWriter(socket);
+      const wantsClose =
+        (req.headers["connection"] || "").toLowerCase() === "close";
+      const res = makeWriter(socket, wantsClose);
+
       const key = `${req.method} /${req.path.split("/")[1]}`;
       const handler = routes[key];
 
@@ -217,7 +232,6 @@ const server = net.createServer((socket) => {
   });
 
   socket.on("close", () => {
-    socket.end();
     console.log("Client disconnected");
   });
 });
